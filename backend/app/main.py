@@ -1,25 +1,18 @@
-import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
 from app.api.routes.health import router as health_router
+from app.config import get_settings
 from app.db.session import engine
-
-# Configure logging to not print sensitive data
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-)
-
-# Ensure SQLAlchemy doesn't log SQL with parameters by default
-logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
-logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
+from app.logging_config import setup_logging
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Startup: configure logging with secret redaction
+    settings = get_settings()
+    setup_logging(settings.log_level)
     yield
     # Shutdown
     engine.dispose()
