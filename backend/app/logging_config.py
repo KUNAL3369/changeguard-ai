@@ -1,5 +1,6 @@
 import logging
 import re
+import traceback
 from re import Pattern
 
 # Patterns for sensitive data that should be redacted
@@ -23,6 +24,10 @@ SENSITIVE_PATTERNS: list[Pattern[str]] = [
 class SecretRedactingFilter(logging.Filter):
     """Logging filter that redacts sensitive information from log records."""
 
+    def __init__(self, extra_secrets: list[str] | None = None):
+        super().__init__()
+        self.extra_secrets = extra_secrets or []
+
     def filter(self, record: logging.LogRecord) -> bool:
         # Redact in the main message
         if isinstance(record.msg, str):
@@ -38,20 +43,45 @@ class SecretRedactingFilter(logging.Filter):
                     new_args.append(arg)
             record.args = tuple(new_args)
 
+        # Redact in exception info (exc_info path): secrets can leak into
+        # tracebacks when an exception is logged with exc_info=True.
+        if record.exc_info:
+            exc_text = "".join(traceback.format_exception(*record.exc_info))
+            record.exc_text = self._redact(exc_text)
+            record.exc_info = None  # Prevent formatter from double-formatting
+
+        # Redact in stack_info: secrets can leak into stack traces.
+        if record.stack_info:
+            record.stack_info = self._redact(record.stack_info)
+
         return True
 
     def _redact(self, text: str) -> str:
-        """Redact sensitive patterns in text."""
+        """Redact sensitive patterns and known secret values in text."""
         result = text
         for pattern in SENSITIVE_PATTERNS:
-            result = pattern.sub(r"\1***REDACTED***\2" if pattern.groups >= 2 else r"\1***REDACTED***", result)
+            result = pattern.sub(
+                r"\1***REDACTED***\2" if pattern.groups >= 2 else r"\1***REDACTED***",
+                result,
+            )
+        # Redact actual secret values loaded from settings (e.g. SECRET_KEY, DB password).
+        for secret in self.extra_secrets:
+            if secret and len(secret) >= 4:
+                result = result.replace(secret, "***REDACTED***")
         return result
 
 
 def setup_logging(log_level: str = "INFO") -> None:
     """Configure application logging with secret redaction."""
-    # Create and add the redacting filter to the root logger
-    redacting_filter = SecretRedactingFilter()
+    from app.config import get_settings
+
+    settings = get_settings()
+    redacting_filter = SecretRedactingFilter(
+        extra_secrets=[
+            settings.secret_key,
+            settings.postgres_password,
+        ]
+    )
 
     # Configure root logger
     root_logger = logging.getLogger()
@@ -75,6 +105,11 @@ def setup_logging(log_level: str = "INFO") -> None:
     logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
     # Also add filter to sqlalchemy loggers
     for logger_name in ["sqlalchemy.engine", "sqlalchemy.pool"]:
+        logger = logging.getLogger(logger_name)
+        logger.addFilter(redacting_filter)
+
+    # Also add filter to uvicorn loggers so access logs are redacted.
+    for logger_name in ["uvicorn", "uvicorn.access", "uvicorn.error"]:
         logger = logging.getLogger(logger_name)
         logger.addFilter(redacting_filter)
 

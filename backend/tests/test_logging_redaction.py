@@ -152,6 +152,80 @@ def test_setup_logging_no_secrets_in_output():
     assert "***REDACTED***" in output
 
 
+def test_secret_redacting_filter_redacts_exception_traceback():
+    """SecretRedactingFilter should redact secrets in exception tracebacks (exc_info path)."""
+    filter_instance = SecretRedactingFilter()
+
+    try:
+        raise ValueError("Connection failed: postgresql://user:secretpassword@localhost:5432/db")
+    except ValueError:
+        import sys
+        exc_info = sys.exc_info()
+
+    record = logging.LogRecord(
+        name="test",
+        level=logging.ERROR,
+        pathname="",
+        lineno=0,
+        msg="Database connection failed",
+        args=(),
+        exc_info=exc_info,
+    )
+
+    filter_instance.filter(record)
+
+    assert record.exc_text is not None
+    assert "secretpassword" not in record.exc_text
+    assert "***REDACTED***" in record.exc_text
+    assert record.exc_info is None  # Filter consumed exc_info to prevent double-format
+
+
+def test_secret_redacting_filter_redacts_stack_info():
+    """SecretRedactingFilter should redact secrets in stack_info (stack_info=True path)."""
+    filter_instance = SecretRedactingFilter()
+
+    record = logging.LogRecord(
+        name="test",
+        level=logging.ERROR,
+        pathname="",
+        lineno=0,
+        msg="Something failed",
+        args=(),
+        exc_info=None,
+    )
+    record.stack_info = "Traceback: postgresql://user:secretpassword@localhost:5432/db"
+
+    filter_instance.filter(record)
+
+    assert record.stack_info is not None
+    assert "secretpassword" not in record.stack_info
+    assert "***REDACTED***" in record.stack_info
+
+
+def test_secret_redacting_filter_exception_through_handler():
+    """Exception with secret should be redacted through a real handler + formatter."""
+    import io
+
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    filter_instance = SecretRedactingFilter()
+    handler.addFilter(filter_instance)
+
+    logger = logging.getLogger("test_handler_redaction")
+    logger.handlers = [handler]
+    logger.setLevel(logging.ERROR)
+
+    try:
+        raise ValueError("Connection failed: postgresql://admin:dbpass@db:5432/app")
+    except ValueError:
+        logger.error("Database connection failed", exc_info=True)
+
+    output = stream.getvalue()
+    assert "dbpass" not in output
+    assert "***REDACTED***" in output
+
+
 def test_no_secrets_in_uvicorn_access_logs():
     """Verify that uvicorn access logs don't contain secrets (integration-style test)."""
     # This test verifies the filter works with realistic log messages
