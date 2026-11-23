@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     postgres_user: str = Field(..., validation_alias="POSTGRES_USER")
     postgres_password: str = Field(..., validation_alias="POSTGRES_PASSWORD")
     postgres_db: str = Field(..., validation_alias="POSTGRES_DB")
+    postgres_host: str = Field("localhost", validation_alias="POSTGRES_HOST")
+    postgres_port: int = Field(5433, validation_alias="POSTGRES_PORT")
 
     # Application
     secret_key: str = Field(..., validation_alias="SECRET_KEY")
@@ -39,7 +41,7 @@ class Settings(BaseSettings):
     @property
     def database_url_sync(self) -> str:
         """Synchronous database URL for SQLAlchemy (psycopg)."""
-        return f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}@localhost:5432/{self.postgres_db}"
+        return f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
 
 
 @lru_cache
