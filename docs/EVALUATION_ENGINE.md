@@ -1,0 +1,65 @@
+# Evaluation Engine (app/core) — the portfolio centerpiece
+
+Pure Python. No DB/HTTP/env/clock. Everything here is a function or a typed model and is unit-tested.
+Statements marked (proposed) should be confirmed with the developer in the ticket that implements them.
+
+## Principles
+1. Deterministic over LLM judging. 2. Preserve raw outputs. 3. Normalize transparently (record what was normalized).
+4. Explain every failure in `failure_reason`. 5. Missing execution is never a pass.
+6. Thresholds are configurable. 7. Version the evaluator (`EVALUATOR_VERSION` constant stored with runs).
+
+## Field evaluation
+`evaluate_field(expected, actual, spec) -> FieldResult{passed, evaluator_type, score|None, failure_reason|None, severity, expected, actual}`
+`evaluate_case(expected_json, normalized_output, field_specs) -> list[FieldResult]`
+Rules: expected null + actual null/missing → pass. Expected non-null + actual missing → fail("missing").
+`required: true` + empty/whitespace/null actual → fail.
+
+### Evaluators
+- **exact**: strict equality after type check. No normalization.
+- **normalized_string**: Unicode NFKC, trim, collapse whitespace; optional casefold (`case_sensitive`). Punctuation preserved by default (proposed).
+- **numeric**: parse to `Decimal`. Accept thousands separators with "." as decimal point by default; strip currency symbols only if configured;
+  unparseable → fail with reason. Pass if `abs(a-e) <= tolerance` (tolerance is a Decimal string in spec). Never use float. (proposed)
+- **date**: normalize to ISO `YYYY-MM-DD`. Default accepted: ISO, `D Mon YYYY`, `Month D, YYYY`. Slash formats (`03/04/2026`) require explicit
+  `day_first` in spec; otherwise fail as "ambiguous date". (proposed)
+- **required**: present and non-empty.
+- **json_schema**: validate the whole normalized output (case-level, field_path `$`) with `jsonschema`; feeds the `schema_valid` policy rule.
+- **custom_rule**: `subtotal_plus_tax_equals_total` checks the ACTUAL output's internal consistency within tolerance; if inputs unavailable → fail
+  with reason `inputs_unavailable` (proposed). Business rules are configurable examples, not accounting advice.
+
+Severity order: critical > high > medium > low.
+
+## Pass-rate definition
+Field-level pass rate = passed field checks / total field checks, over cases whose status is SUCCEEDED.
+Cases with EXECUTION_ERROR are excluded from the rate and reported separately, then gated by `max_execution_error_rate`.
+If zero cases were evaluated, no rule may pass vacuously: decision = FAIL.
+
+## Regression classification (per test_case × field_path)
+Precedence (first match wins):
+1. Either run has no result row for the case → MISSING_RESULT
+2. Either run's case status is EXECUTION_ERROR → EXECUTION_ERROR
+3. baseline pass & candidate pass → UNCHANGED_PASS
+4. baseline pass & candidate fail → REGRESSION
+5. baseline fail & candidate pass → IMPROVED
+6. baseline fail & candidate fail → UNCHANGED_FAIL
+A field failing in both runs is NOT a new regression. Severity for the row = field's severity from field_specs.
+Comparison requires both runs on the same dataset_version.
+Tests: one test per row above plus mixed-case summaries.
+
+## Release policy
+Rule types: `no_critical_regression`, `no_high_regression`, `min_pass_rate`, `max_execution_error_rate`, `schema_valid`.
+Each rule has `on_fail` = `fail` | `review`.
+`evaluate_policy(comparison_summary, policy) -> Decision{decision, rule_results[]}` where each rule result =
+`{rule, passed, on_fail, observed, threshold, message}`.
+Aggregation: any failed rule with on_fail=fail → FAIL; else any failed rule with on_fail=review → REVIEW_REQUIRED; else PASS.
+Also FAIL if zero cases evaluated, or if either run is not COMPLETED/PARTIAL.
+MISSING_RESULT is treated like an execution problem and must never silently pass.
+
+## Report (core renders from data; services supply the data)
+Project, dataset version, baseline & candidate versions, case count, pass rate (baseline, candidate, delta), regression count,
+critical regression count, improvements, existing failures, execution errors, latency, cost if known, decision, per-rule reasons,
+failure details (case, field, expected, baseline, candidate, reason, evidence + verified flag). Output: Markdown and JSON.
+
+## Test matrix (minimum)
+Each evaluator: pass, fail, missing, null/optional, edge values (rounding at tolerance boundary, ambiguous date, comma/dot amounts).
+Classifier: every precedence row. Policy: PASS / REVIEW / FAIL paths, zero-case FAIL, boundary values for thresholds.
+Boundary test: no forbidden imports inside app/core.

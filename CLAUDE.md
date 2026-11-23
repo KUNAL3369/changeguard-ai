@@ -22,8 +22,10 @@ platform. Do not add tracing, dashboards, or features because competitors have t
 - Do not trust yourself blindly and do not expect him to. Verifiable output beats confident claims.
 
 ## Docs map (read the relevant doc BEFORE working in that area)
+**Source of truth order:** docs/PROJECT_UPDATE.md overrides everything else on positioning, scope and MVP boundaries.
 | File | Read when |
 |---|---|
+| docs/PROJECT_UPDATE.md | Always. Latest positioning, scope, demo rules, execution rules |
 | docs/PRD.md | Scope, user journey, MVP acceptance criteria, what not to claim |
 | docs/ARCHITECTURE.md | Layout, module boundaries, worker, extraction contract, security |
 | docs/DATA_MODEL.md | Any migration or model work |
@@ -57,7 +59,10 @@ platform. Do not add tracing, dashboards, or features because competitors have t
 11. **Git:** work on a branch per milestone (e.g. `m1-foundation`), small commits with clear
     messages. Never push, force-push, rebase shared history, or delete files outside the task
     without asking.
-12. **No invented claims** (customers, accuracy gains, savings). Report only measured numbers.
+12. **No invented claims** (customers, accuracy gains, savings). Report only measured numbers. The sample dataset is
+    synthetic and must be labelled so everywhere (README, UI, reports).
+    **The demo regression must be reproducible** (replay provider, see docs/SAMPLE_DATA.md), never dependent on live LLM randomness.
+    **Gate:** no auth, frontend, evaluation logic or release gating until the foundation milestone (M1) is reviewed and approved.
 13. **Do not decide open decisions** listed in docs/DECISIONS.md. Present options and ask.
 
 ## Stack (provisional; see DECISIONS.md)
@@ -107,6 +112,7 @@ docker compose stop db
 docker compose start db
 # verify /ready returns 200
 ```
+Note: port 8001 used because port 8000 had conflicts on Windows; PostgreSQL host port is 5433 via POSTGRES_PORT to prevent collisions with native PostgreSQL on port 5432; README and this section agree.
 
 ## Workflow for every ticket
 1. Read docs/PROGRESS.md and the ticket in docs/BACKLOG.md.
@@ -125,5 +131,6 @@ docker compose start db
 
 ## Out of scope for the MVP
 Multi-provider, RAG evaluation, LLM-as-judge, OCR, line items, bounding boxes, scheduling,
-teams/orgs, tracing, online monitoring, PDF report export, audit_events, Redis/Celery, Kubernetes,
-microservices.
+teams/orgs/multi-tenancy, tracing SDK, prompt playground, model marketplace, multi-agent orchestration,
+online monitoring, other document types, PDF report export, audit_events, Redis/Celery, Kubernetes,
+microservices. Do not build Project 2 (Business Support Resolution Agent) in this repo.

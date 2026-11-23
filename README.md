@@ -31,14 +31,14 @@ uv sync
 # 5. Run database migrations
 uv run alembic upgrade head
 
-# 6. Start the API server
-uv run uvicorn app.main:app --reload
+# 6. Start the API server (port 8001 avoids port 8000 conflicts on Windows)
+uv run uvicorn app.main:app --reload --port 8001
 
 # 7. Verify health endpoints (in another terminal)
-curl http://localhost:8000/health
+curl http://localhost:8001/health
 # {"status":"ok"}
 
-curl http://localhost:8000/ready
+curl http://localhost:8001/ready
 # {"status":"ready","checks":{"database":"ok"}}
 
 # 8. Run tests
@@ -52,6 +52,8 @@ uv run pytest -v
 | `POSTGRES_USER` | Yes | PostgreSQL username |
 | `POSTGRES_PASSWORD` | Yes | PostgreSQL password (no default) |
 | `POSTGRES_DB` | Yes | PostgreSQL database name |
+| `POSTGRES_HOST` | No | PostgreSQL host (default: localhost) |
+| `POSTGRES_PORT` | No | PostgreSQL host port (default: 5433, avoids native port 5432 collision) |
 | `SECRET_KEY` | Yes | Application secret key (min 32 chars) |
 | `LOG_LEVEL` | No | Log level (default: INFO) |
 | `MAX_UPLOAD_MB` | No | Max upload size in MB (default: 10) |
@@ -144,8 +146,8 @@ cd backend && uv run ruff format .
 
 ### API Documentation
 
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
+- Swagger UI: http://localhost:8001/docs
+- ReDoc: http://localhost:8001/redoc
 
 ## Architecture Overview
 
