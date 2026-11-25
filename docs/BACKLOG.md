@@ -5,7 +5,7 @@
 - [x] T02 Docker Compose Postgres, SQLAlchemy session, Alembic init + empty baseline revision, `/ready`. Done when: upgrade/downgrade/upgrade ok; /ready 200, and 503 after `docker compose stop db`.
 - [x] T03 Typed settings (pydantic-settings), `.env.example`, secret-redaction in logging. Done when: no URL/password in logs (test).
 - [~] T04 Pytest setup with separate test DB fixture. Done when: tests for health/ready pass against real Postgres. (Pending audit - STEP B)
-- [ ] T05 GitHub Actions: lint + tests on PR. Done when: green check on a PR.
+- [x] T05 GitHub Actions: lint + tests on PR. Done: PR #1 green check (`Lint and test` SUCCESS, 29s) on 2026-11-25.
 **M1 verification (REVIEW GATE: no auth/frontend/evaluation work until I approve M1):** clean clone → compose up → alembic upgrade → uvicorn → curl health/ready → pytest → CI green.
 
 ## M2 Evaluation core — pure Python (~8 days)
