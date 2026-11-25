@@ -1,9 +1,10 @@
 # Progress Log (update at the end of every session)
 
 ## Current state
-- Milestone: M1 (Foundation fixes & audit cleanup complete)
-- Last completed ticket: T01–T04 foundation fixes
-- Next ticket: T05 (GitHub Actions: lint + tests on PR)
+- Milestone: M1 (foundation + CI verified; awaiting owner M1 review approval)
+- Last completed ticket: T05 (GitHub Actions: lint + tests on PR)
+- Next ticket: M2 T07 (core types + import-boundary test), only after M1 approval
+- Note: BACKLOG still marks T04 as pending audit; reconcile that before starting M2.
 
 ## Verified facts (only things actually run and seen on 2026-11-24)
 - `docker info` → Docker Desktop Server 29.7.2 active and healthy
@@ -20,6 +21,15 @@
 - Safety assertions in `conftest.py` verify test DB name ends with `_test` and differs from dev DB before create/drop
 - Naming conventions test verifies constraint compilation on PostgreSQL dialect
 - Context folders (`changeguard-claude-code-context/` and `KICKOFF_PROMPT.md`) moved out of repo into parent directory
+
+## Verified facts added 2026-11-25 (T05)
+- Public GitHub remote created: `https://github.com/KUNAL3369/changeguard-ai`; default branch is `main`
+- Both `main` and `m1-foundation` pushed at `ce65d1f` before the CI commit, then `m1-foundation` advanced to `af42de3`
+- PR #1 opened: `https://github.com/KUNAL3369/changeguard-ai/pull/1` (`m1-foundation` → `main`)
+- CI check `Lint and test` → SUCCESS in 29s; GitGuardian Security Checks → SUCCESS
+- Local `uv run ruff check .` → `All checks passed!`
+- Local `uv run pytest -v` → `18 passed, 2 warnings in 21.32s`
+- PR was left open; no merge was performed
 
 ## Open questions / blockers
 - See OPEN items in docs/DECISIONS.md
@@ -45,3 +55,10 @@
 - Replaced `docs/API.md` with bundle contract and marked proposed endpoints
 - Moved `changeguard-claude-code-context/` and `KICKOFF_PROMPT.md` to parent directory
 - All 18 tests passing, ruff clean, health/ready probes verified live.
+
+### 2026-11-25 (T05 CI)
+- Added `.github/workflows/ci.yml`: Python 3.12 + uv, PostgreSQL 16 service, `ruff check .`, `pytest -v`.
+- Verified locally: ruff clean; 18 tests passed.
+- Created public remote `KUNAL3369/changeguard-ai`, pushed `main` and `m1-foundation`, opened PR #1.
+- CI check `Lint and test` SUCCESS in 29s; GitGuardian Security Checks SUCCESS.
+- Did not merge PR and did not change application code.
