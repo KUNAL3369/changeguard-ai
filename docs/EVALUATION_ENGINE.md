@@ -9,10 +9,24 @@ Statements marked (proposed) should be confirmed with the developer in the ticke
 6. Thresholds are configurable. 7. Version the evaluator (`EVALUATOR_VERSION` constant stored with runs).
 
 ## Field evaluation
-`evaluate_field(expected, actual, spec) -> FieldResult{passed, evaluator_type, score|None, failure_reason|None, severity, expected, actual}`
+`evaluate_field(expected, actual, spec, *, actual_state) -> FieldResult{passed, evaluator_type, score|None, failure_reason|None, severity, expected, actual, actual_state}`
 `evaluate_case(expected_json, normalized_output, field_specs) -> list[FieldResult]`
-Rules: expected null + actual null/missing → pass. Expected non-null + actual missing → fail("missing").
-`required: true` + empty/whitespace/null actual → fail.
+
+Presence/state rules (T08, decisions D1–D4 in docs/DECISIONS.md): actual values carry a `ValueState` —
+`present` (key holds a value), `absent` (key missing), `null` (explicit JSON null) — passed as the required
+keyword `actual_state` and echoed in `FieldResult.actual_state`.
+- expected null + actual absent/null → pass, unless `required: true`, which fails `missing` (D1: a required promise never silently passes).
+- expected null + actual present → fail `unexpected_value` (D2); the `required` evaluator passes when the value is present and non-empty (D3: required checks presence only).
+- expected non-null + actual absent/null → fail `missing`.
+- `required: true` + empty/whitespace-only actual → fail `empty` (never truthiness: `0` and `False` are present values).
+- score is `None` for exact/required (D4); numeric (T10) defines partial credit. State/value contradictions raise `ValueError`;
+  unimplemented evaluator types raise `NotImplementedError` — never a silent pass.
+
+Ownership notes for later tickets:
+- T13 (`evaluate_case`) and T27 (case runner) own the raw-output mapping: missing key → `absent`, explicit null → `null`.
+  Any empty-string-to-null mapping must be an explicit, documented normalization step, never implicit.
+- T22 (dataset version) must reject field specs with `required: true` and a null expected value (D1/D3 contradiction).
+- T25 (provider adapters) and T27 must parse model JSON with `parse_float=Decimal` — never float (ADR-008).
 
 ### Evaluators
 - **exact**: strict equality after type check. No normalization.

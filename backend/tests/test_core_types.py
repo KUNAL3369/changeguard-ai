@@ -12,6 +12,7 @@ from app.core.types import (
     FieldResult,
     FieldSpec,
     Severity,
+    ValueState,
 )
 
 
@@ -69,6 +70,7 @@ def test_field_result_failure_reason_is_enum_value() -> None:
         field_path="invoice_number",
         expected="INV-1042",
         actual=None,
+        actual_state=ValueState.ABSENT,
         evaluator_type=EvaluatorType.REQUIRED,
         passed=False,
         failure_reason=FailureReason.MISSING,
@@ -109,3 +111,15 @@ def test_evidence_fields_are_nullable() -> None:
     assert evidence.quote is None
     assert evidence.page is None
     assert evidence.verified is None
+
+
+def test_field_result_actual_state_defaults_to_present() -> None:
+    result = FieldResult(
+        field_path="invoice_number",
+        expected="INV-1042",
+        actual="INV-1042",
+        evaluator_type=EvaluatorType.EXACT,
+        passed=True,
+    )
+
+    assert result.actual_state is ValueState.PRESENT

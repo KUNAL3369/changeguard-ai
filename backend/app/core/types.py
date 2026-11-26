@@ -35,11 +35,21 @@ class FailureReason(StrEnum):
     MISSING = "missing"
     EMPTY = "empty"
     TYPE_MISMATCH = "type_mismatch"
+    UNEXPECTED_VALUE = "unexpected_value"
+    VALUE_MISMATCH = "value_mismatch"
     UNPARSEABLE = "unparseable"
     AMBIGUOUS = "ambiguous"
     SCHEMA_INVALID = "schema_invalid"
     RULE_FAILED = "rule_failed"
     EVIDENCE_UNVERIFIED = "evidence_unverified"
+
+
+class ValueState(StrEnum):
+    """How the actual value arrived from the workflow output."""
+
+    PRESENT = "present"
+    ABSENT = "absent"
+    NULL = "null"
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,10 +70,11 @@ class FieldSpec:
 @dataclass(frozen=True, slots=True)
 class FieldResult:
     field_path: str
-    expected: str | None
-    actual: str | None
+    expected: object | None
+    actual: object | None
     evaluator_type: EvaluatorType
     passed: bool
+    actual_state: ValueState = ValueState.PRESENT
     score: Decimal | None = None
     failure_reason: FailureReason | None = None
     severity: Severity = Severity.MEDIUM
@@ -73,3 +84,7 @@ class FieldResult:
     def __post_init__(self) -> None:
         if not self.passed and self.failure_reason is None:
             raise ValueError("failed FieldResult requires a non-None failure_reason")
+        if self.actual_state in (ValueState.ABSENT, ValueState.NULL) and self.actual is not None:
+            raise ValueError("actual must be None when actual_state is absent or null")
+        if self.actual_state is ValueState.PRESENT and self.actual is None:
+            raise ValueError("actual must not be None when actual_state is present")

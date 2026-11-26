@@ -1,10 +1,10 @@
 # Progress Log (update at the end of every session)
 
 ## Current state
-- Milestone: M2 (owner approved M1 only; T07 implemented and verified, not yet committed at time of audit)
-- Last completed ticket: T07 (core types + import-boundary test; uncommitted at time of audit)
-- Next ticket: M2 T08 (exact + required evaluators + tests)
-- Note: PR #1 is MERGED on GitHub as true merge commit `36ab80b`; local `main` now matches `origin/main`. Context/research files moved out of repo to parent folder.
+- Milestone: M2 (owner approved M1 only)
+- Last completed ticket: T08 (exact + required evaluators; committed on `m2-evaluation-core`, not pushed)
+- Next ticket: M2 T09 (normalized_string evaluator + tests)
+- Note: PR #1 is MERGED on GitHub as true merge commit `36ab80b`; local `main` now matches `origin/main`. Unpushed local commits on `m2-evaluation-core`: docs, `6b994dc` (T07), `fea4d42` (CI), plus the T08 commit.
 
 ## Verified facts (only things actually run and seen on 2026-11-24)
 - `docker info` → Docker Desktop Server 29.7.2 active and healthy
@@ -42,6 +42,16 @@
 - Ruff required Python 3.12 `StrEnum` instead of `str, Enum` (rule `UP042`); implementation was adjusted before green.
 - Core boundary test verifies no forbidden app-layer, framework, I/O, or clock-call imports in `app/core`.
 - PR #1 is MERGED on GitHub. At audit time T07 was uncommitted; no push was performed.
+
+## Verified facts added 2026-11-26 (T08)
+- `uv run pytest -v` → `69 passed, 2 warnings in 18.91s` (28 existing + 41 new/changed).
+- `uv run ruff check .` → `All checks passed!`
+- `backend/app/core/evaluators.py` created: `evaluate_field(expected, actual, spec, *, actual_state)`; state/value contradiction raises `ValueError`; unimplemented evaluator type raises `NotImplementedError` (never a silent pass).
+- `backend/app/core/types.py` extended: `ValueState` StrEnum (`present`/`absent`/`null`), `FailureReason.UNEXPECTED_VALUE` + `VALUE_MISMATCH`, `FieldResult.actual_state` (default `PRESENT`) with `__post_init__` state/value consistency guards, `expected`/`actual` widened to `object | None`.
+- Boundary test extended with an AST float guard (float literals, `float()` calls, float annotations; `isinstance(x, float)` allowed per D7) plus a synthetic-violation self-test.
+- `_is_empty` is not truthiness: `0` and `False` pass `required`; `""` and whitespace-only strings fail `empty`.
+- `EVALUATOR_VERSION` remains `"0.1.0"` (D5); no float, no I/O, no clock in `app/core`.
+- No push; one local commit for T08 only.
 
 ## Open questions / blockers
 - See OPEN items in docs/DECISIONS.md
@@ -83,3 +93,10 @@
 - Repaired local uv Python entry-point launchers with `uv sync --reinstall` after a Windows trampoline error.
 - Verified: ruff clean; 10 new tests pass; full suite 28 passed against real Postgres.
 - At audit time T07 was uncommitted; PR #1 was already merged on GitHub. No push was performed.
+
+### 2026-11-26 (T08 evaluators)
+- Implemented `evaluate_field` with the approved evaluation order: state invariant → expected-null rules (D1 required-fails-missing, D2 `unexpected_value`, D3 required evaluator presence-only) → non-null expected + absent/null → `missing` → required empty/whitespace gate → dispatch (`exact` type-identity then `value_mismatch`; `required` presence-only; others `NotImplementedError`).
+- Widened `FieldResult.expected`/`actual` to `object | None`; added `actual_state` and its `__post_init__` guards; added `ValueState`, `UNEXPECTED_VALUE`, `VALUE_MISMATCH`.
+- Adjusted existing tests: fixture now sets `actual_state=ABSENT` where `actual=None`; added default-state assertion; narrowed the AST float guard (D7) and added its synthetic self-test.
+- Documented signature and D1/D2 rules in `docs/EVALUATION_ENGINE.md`, decisions 031–036 in `docs/DECISIONS.md`, plus ownership notes for T13/T22/T25/T27 (absent-vs-null mapping, reject `required` + null expected, `parse_float=Decimal`, empty-string-to-null mapping must be explicit).
+- Verified: 69 passed; ruff clean. One local commit; no push.

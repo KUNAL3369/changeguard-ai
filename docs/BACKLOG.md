@@ -9,8 +9,8 @@
 **M1 verification (owner approved M1 only; PR #1 MERGED as true merge commit `36ab80b`):** clean clone → compose up → alembic upgrade → uvicorn → curl.exe health/ready → pytest → CI green.
 
 ## M2 Evaluation core — pure Python (~8 days)
-- [x] T07 Core types (FieldSpec, FieldResult, Severity) + import-boundary test. Done: ruff clean; 28 tests passed (10 new) on 2026-11-26; uncommitted at time of audit.
-- T08 exact + required evaluators + tests.
+- [x] T07 Core types (FieldSpec, FieldResult, Severity) + import-boundary test. Done: ruff clean; 28 tests passed (10 new) on 2026-11-26; committed as `6b994dc` (not pushed).
+- [x] T08 exact + required evaluators + tests. Done: `evaluate_field(expected, actual, spec, *, actual_state)` in `backend/app/core/evaluators.py`; `ValueState`, `UNEXPECTED_VALUE`, `VALUE_MISMATCH`, `actual_state` added to core types; 69 tests passed + ruff clean on 2026-11-26 (evidence in PROGRESS.md); committed, not pushed.
 - T09 normalized_string evaluator + tests.
 - T10 numeric evaluator (Decimal, tolerance) + boundary tests.
 - T11 date evaluator + ambiguity tests.
