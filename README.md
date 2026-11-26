@@ -35,10 +35,10 @@ uv run alembic upgrade head
 uv run uvicorn app.main:app --reload --port 8001
 
 # 7. Verify health endpoints (in another terminal)
-curl http://localhost:8001/health
+curl.exe http://localhost:8001/health
 # {"status":"ok"}
 
-curl http://localhost:8001/ready
+curl.exe http://localhost:8001/ready
 # {"status":"ready","checks":{"database":"ok"}}
 
 # 8. Run tests

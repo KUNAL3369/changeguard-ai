@@ -29,6 +29,16 @@
 | 024 | Dev dependency group via PEP 735 | [dependency-groups] dev in pyproject.toml ensures plain `uv sync` keeps dev tools installed |
 | 025 | API error envelope format | `{"error":{"code":"string","message":"string","details":{}}}` per bundle API specification |
 | 026 | Port 8001 for FastAPI server | Port 8000 conflicts on Windows development environments; README and CLAUDE.md aligned |
+| 027 | `Severity`, `EvaluatorType`, `FailureReason` use Python 3.12 `StrEnum` | Ruff rule `UP042` rejects `str, Enum`; string-valued enums are simpler |
+| 028 | `EVALUATOR_VERSION = "0.1.0"` in `app/core/types.py` | EVALUATION_ENGINE.md requires a version constant stored with runs |
+| 029 | `FieldResult` rejects `passed=False` without `failure_reason` | Every failure must be explainable; `__post_init__` enforces it |
+| 030 | Core boundary-test forbidden list: app layers `app.api`, `app.adapters`, `app.config`, `app.db`, `app.main`, `app.services`, `app.worker`; dependencies `fastapi`, `httpx`, `logging`, `pydantic`, `requests`, `sqlalchemy`, `boto3`, `supabase`; stdlib I/O `os`, `pathlib`, `socket`, `subprocess`, `sys`; clock calls `datetime.now(`, `datetime.today(`, `datetime.utcnow(`, `time.time(` | Makes the pure-Python `app/core` boundary explicit and enforceable |
+| 031 | `ValueState` (`present`/`absent`/`null`) on `FieldResult`; `evaluate_field(..., actual_state=...)` is a required keyword-only argument (T08) | A missing key and an explicit JSON null must be distinguishable; raw-output mapping is owned by T13/T27 |
+| 032 | D2 strict: a value present where the expected value is null fails with new `FailureReason.UNEXPECTED_VALUE` (not `TYPE_MISMATCH`) | Keeps `TYPE_MISMATCH` for type errors only; every failure stays explainable (EVALUATION_ENGINE principle 4) |
+| 033 | D1: `required: true` beats the expected-null pass rule — expected null + actual absent/null fails `missing` | A required promise never silently passes; T22 additionally rejects such specs at creation time |
+| 034 | D3: the `required` evaluator checks presence and non-empty only, never the value | Matches the EVALUATION_ENGINE definition; value correctness belongs to `exact` |
+| 035 | D4: `score = None` for exact/required | No invented partial-credit semantics; numeric (T10) defines score |
+| 036 | D5: `EVALUATOR_VERSION` stays `"0.1.0"`; bump at the first persisted run and on any later evaluator behavior change | No runs exist yet; the version exists so stored run results stay attributable |
 
 ## OPEN — ask the developer, do not decide silently
 | # | Question | Notes |

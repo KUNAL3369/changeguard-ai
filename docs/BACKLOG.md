@@ -4,13 +4,13 @@
 - [x] T01 Repo layout, uv project, FastAPI app, `/health`. Done when: `uv sync` ok, curl /health 200.
 - [x] T02 Docker Compose Postgres, SQLAlchemy session, Alembic init + empty baseline revision, `/ready`. Done when: upgrade/downgrade/upgrade ok; /ready 200, and 503 after `docker compose stop db`.
 - [x] T03 Typed settings (pydantic-settings), `.env.example`, secret-redaction in logging. Done when: no URL/password in logs (test).
-- [~] T04 Pytest setup with separate test DB fixture. Done when: tests for health/ready pass against real Postgres. (Pending audit - STEP B)
-- [x] T05 GitHub Actions: lint + tests on PR. Done: PR #1 green check (`Lint and test` SUCCESS, 29s) on 2026-11-25.
-**M1 verification (REVIEW GATE: no auth/frontend/evaluation work until I approve M1):** clean clone → compose up → alembic upgrade → uvicorn → curl health/ready → pytest → CI green.
+- [x] T04 Pytest setup with separate test DB fixture. Done: health/ready tests pass against real Postgres; 18 tests passed on 2026-11-25; CI green.
+- [x] T05 GitHub Actions: lint + tests on PR. Done: PR #1 green check (`Lint and test` SUCCESS, 27s) on 2026-11-25.
+**M1 verification (owner approved M1 only; PR #1 MERGED as true merge commit `36ab80b`):** clean clone → compose up → alembic upgrade → uvicorn → curl.exe health/ready → pytest → CI green.
 
 ## M2 Evaluation core — pure Python (~8 days)
-- T07 Core types (FieldSpec, FieldResult, Severity) + import-boundary test.
-- T08 exact + required evaluators + tests.
+- [x] T07 Core types (FieldSpec, FieldResult, Severity) + import-boundary test. Done: ruff clean; 28 tests passed (10 new) on 2026-11-26; committed as `6b994dc` (not pushed).
+- [x] T08 exact + required evaluators + tests. Done: `evaluate_field(expected, actual, spec, *, actual_state)` in `backend/app/core/evaluators.py`; `ValueState`, `UNEXPECTED_VALUE`, `VALUE_MISMATCH`, `actual_state` added to core types; 69 tests passed + ruff clean on 2026-11-26 (evidence in PROGRESS.md); committed, not pushed.
 - T09 normalized_string evaluator + tests.
 - T10 numeric evaluator (Decimal, tolerance) + boundary tests.
 - T11 date evaluator + ambiguity tests.

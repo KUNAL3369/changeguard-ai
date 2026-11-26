@@ -101,8 +101,8 @@ docker compose up -d db
 cd backend && uv sync
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload --port 8001
-curl http://localhost:8001/health
-curl http://localhost:8001/ready
+curl.exe http://localhost:8001/health
+curl.exe http://localhost:8001/ready
 uv run pytest -v
 uv run ruff check .
 uv run alembic downgrade base

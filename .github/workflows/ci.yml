@@ -68,5 +68,8 @@ jobs:
       - name: Lint
         run: uv run ruff check .
 
+      - name: Apply migrations
+        run: uv run alembic upgrade head
+
       - name: Test
         run: uv run pytest -v
