@@ -2,9 +2,9 @@
 
 ## Current state
 - Milestone: M2 (owner approved M1 only)
-- Last completed ticket: T08 (exact + required evaluators; committed on `m2-evaluation-core`, not pushed)
-- Next ticket: M2 T09 (normalized_string evaluator + tests)
-- Note: PR #1 is MERGED on GitHub as true merge commit `36ab80b`; local `main` now matches `origin/main`. Unpushed local commits on `m2-evaluation-core`: docs, `6b994dc` (T07), `fea4d42` (CI), plus the T08 commit.
+- Last completed ticket: T09 (normalized_string evaluator; committed on `m2-evaluation-core`, not pushed)
+- Next ticket: M2 T10 (numeric evaluator, Decimal + tolerance)
+- Note: PR #1 is MERGED on GitHub as true merge commit `36ab80b`; local `main` now matches `origin/main`. Branch `m2-evaluation-core` was pushed to origin by the owner after T08 (`2848add`); the T09 commit is local only.
 
 ## Verified facts (only things actually run and seen on 2026-11-24)
 - `docker info` → Docker Desktop Server 29.7.2 active and healthy
@@ -53,6 +53,16 @@
 - `EVALUATOR_VERSION` remains `"0.1.0"` (D5); no float, no I/O, no clock in `app/core`.
 - No push; one local commit for T08 only.
 
+## Verified facts added 2026-11-26 (T09)
+- `uv run pytest -v` → `107 passed, 2 warnings in 27.38s` (was 69 after T08; +38 tests).
+- `uv run pytest --collect-only -q` → per-file: `test_core_boundary` 4, `test_core_types` 9, `test_db` 2, `test_evaluators` 62, `test_health` 5, `test_logging_redaction` 10, `test_normalizers` 15 (sum 107).
+- `uv run ruff check .` → `All checks passed!`
+- New `backend/app/core/normalizers.py`: `normalize_text(value, *, case_sensitive)` = NFC → `" ".join(value.split())` → optional `casefold()`; raises `TypeError` on non-`str`; idempotent (test).
+- `evaluate_field` dispatches `normalized_string` after the unchanged S0–S3 rules: non-`str` on either side → `type_mismatch` (no `str()` coercion); otherwise normalize both and compare → pass or `value_mismatch`.
+- `FieldSpec.case_sensitive: bool = True` (existing constructions unchanged); `FieldResult.normalized_expected` / `normalized_actual` default `None` and are recorded on pass and on value mismatch; `EVALUATOR_VERSION` still `"0.1.0"`.
+- Non-ASCII test input written as `\u` escapes (e.g. `"Cafe\u0301"`), so source stays ASCII-safe.
+- Known limits documented in `docs/EVALUATION_ENGINE.md`: punctuation/dash variants are significant; zero-width characters are not removed.
+
 ## Open questions / blockers
 - See OPEN items in docs/DECISIONS.md
 - Python version: 3.12 (decided for O4)
@@ -100,3 +110,11 @@
 - Adjusted existing tests: fixture now sets `actual_state=ABSENT` where `actual=None`; added default-state assertion; narrowed the AST float guard (D7) and added its synthetic self-test.
 - Documented signature and D1/D2 rules in `docs/EVALUATION_ENGINE.md`, decisions 031–036 in `docs/DECISIONS.md`, plus ownership notes for T13/T22/T25/T27 (absent-vs-null mapping, reject `required` + null expected, `parse_float=Decimal`, empty-string-to-null mapping must be explicit).
 - Verified: 69 passed; ruff clean. One local commit; no push.
+
+### 2026-11-26 (T09 normalized_string)
+- Added `app/core/normalizers.py` (`normalize_text`) with the approved O8 defaults: NFC, whitespace trim/collapse, optional `casefold()`; NFKC explicitly rejected (ADR-037).
+- Extended `evaluate_field` with a `normalized_string` case after the unchanged S0–S3 rules; type-strict (no `str()` coercion), records `normalized_expected`/`normalized_actual` on pass and value mismatch.
+- Added `FieldSpec.case_sensitive: bool = True`; kept `EVALUATOR_VERSION` at `0.1.0`.
+- New `tests/test_normalizers.py` (15) and 23 `normalized_*` tests in `tests/test_evaluators.py`; all non-ASCII written as `\u` escapes.
+- Updated `docs/EVALUATION_ENGINE.md` (rules, NFC rationale, known limits), `docs/DECISIONS.md` (ADR-037..040, O8 normalized_string closed), `docs/PROGRESS.md`, `docs/BACKLOG.md`.
+- Verified: 107 passed, ruff clean, collect-only per-file counts recorded above. One local commit; no push (the owner had already pushed T08 themselves).

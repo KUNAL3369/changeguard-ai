@@ -16,12 +16,14 @@ def _spec(
     severity: Severity = Severity.MEDIUM,
     required: bool = True,
     field_path: str = "invoice_number",
+    case_sensitive: bool = True,
 ) -> FieldSpec:
     return FieldSpec(
         field_path=field_path,
         evaluator_type=evaluator_type,
         severity=severity,
         required=required,
+        case_sensitive=case_sensitive,
     )
 
 
@@ -487,3 +489,314 @@ def test_failed_result_from_evaluator_always_has_reason() -> None:
     for result in failures:
         assert result.passed is False
         assert result.failure_reason is not None
+
+
+# --- normalized_string (T09) ------------------------------------------------
+
+
+def _nspec(
+    *,
+    severity: Severity = Severity.MEDIUM,
+    required: bool = True,
+    case_sensitive: bool = True,
+    field_path: str = "vendor_name",
+) -> FieldSpec:
+    return _spec(
+        EvaluatorType.NORMALIZED_STRING,
+        severity=severity,
+        required=required,
+        case_sensitive=case_sensitive,
+        field_path=field_path,
+    )
+
+
+def test_normalized_identical_strings_pass() -> None:
+    result = evaluate_field(
+        "Acme Ltd.",
+        "Acme Ltd.",
+        _nspec(),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is True
+    assert result.failure_reason is None
+
+
+def test_normalized_case_difference_fails_by_default() -> None:
+    result = evaluate_field(
+        "Acme Ltd.",
+        "ACME LTD.",
+        _nspec(),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is False
+    assert result.failure_reason is FailureReason.VALUE_MISMATCH
+
+
+def test_normalized_case_difference_passes_when_not_case_sensitive() -> None:
+    result = evaluate_field(
+        "Acme Ltd.",
+        "ACME LTD.",
+        _nspec(case_sensitive=False),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is True
+    assert result.failure_reason is None
+
+
+def test_normalized_casefold_handles_sharp_s() -> None:
+    result = evaluate_field(
+        "Stra\u00dfe",
+        "STRASSE",
+        _nspec(case_sensitive=False),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is True
+    assert result.failure_reason is None
+
+
+def test_normalized_leading_and_trailing_whitespace_passes() -> None:
+    result = evaluate_field(
+        "  Acme Ltd.  ",
+        "Acme Ltd.",
+        _nspec(),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is True
+    assert result.normalized_expected == "Acme Ltd."
+    assert result.normalized_actual == "Acme Ltd."
+
+
+def test_normalized_internal_multiple_spaces_pass() -> None:
+    result = evaluate_field(
+        "Acme   Ltd.",
+        "Acme Ltd.",
+        _nspec(),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is True
+
+
+def test_normalized_tabs_newlines_and_nbsp_collapse() -> None:
+    result = evaluate_field(
+        "a \t b\n c\u00a0d",
+        "a b c d",
+        _nspec(field_path="notes"),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is True
+    assert result.normalized_actual == "a b c d"
+
+
+def test_normalized_nfc_composed_and_decomposed_pass() -> None:
+    result = evaluate_field(
+        "Caf\u00e9",
+        "Cafe\u0301",
+        _nspec(),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is True
+    assert result.normalized_expected == result.normalized_actual
+
+
+def test_normalized_punctuation_is_significant() -> None:
+    result = evaluate_field(
+        "Acme Ltd.",
+        "Acme Ltd",
+        _nspec(),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is False
+    assert result.failure_reason is FailureReason.VALUE_MISMATCH
+    assert result.normalized_expected == "Acme Ltd."
+    assert result.normalized_actual == "Acme Ltd"
+
+
+def test_normalized_different_dash_characters_fail() -> None:
+    result = evaluate_field(
+        "a\u2013b",
+        "a-b",
+        _nspec(field_path="notes"),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is False
+    assert result.failure_reason is FailureReason.VALUE_MISMATCH
+
+
+def test_normalized_zero_width_space_is_not_removed() -> None:
+    # Known limit, documented in EVALUATION_ENGINE.md.
+    result = evaluate_field(
+        "ab",
+        "a\u200bb",
+        _nspec(field_path="notes"),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is False
+    assert result.failure_reason is FailureReason.VALUE_MISMATCH
+
+
+def test_normalized_int_actual_fails_type_mismatch() -> None:
+    result = evaluate_field(
+        "10000",
+        10000,
+        _nspec(field_path="total_amount"),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is False
+    assert result.failure_reason is FailureReason.TYPE_MISMATCH
+    assert result.normalized_expected is None
+    assert result.normalized_actual is None
+
+
+def test_normalized_int_expected_fails_type_mismatch() -> None:
+    result = evaluate_field(
+        10000,
+        "10000",
+        _nspec(field_path="total_amount"),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is False
+    assert result.failure_reason is FailureReason.TYPE_MISMATCH
+    assert result.normalized_expected is None
+    assert result.normalized_actual is None
+
+
+def test_normalized_absent_actual_fails_missing() -> None:
+    result = evaluate_field(
+        "Acme Ltd.",
+        None,
+        _nspec(),
+        actual_state=ValueState.ABSENT,
+    )
+
+    assert result.passed is False
+    assert result.failure_reason is FailureReason.MISSING
+
+
+def test_normalized_explicit_null_actual_fails_missing() -> None:
+    result = evaluate_field(
+        "Acme Ltd.",
+        None,
+        _nspec(),
+        actual_state=ValueState.NULL,
+    )
+
+    assert result.passed is False
+    assert result.failure_reason is FailureReason.MISSING
+
+
+def test_normalized_expected_null_and_absent_optional_passes() -> None:
+    result = evaluate_field(
+        None,
+        None,
+        _nspec(required=False),
+        actual_state=ValueState.ABSENT,
+    )
+
+    assert result.passed is True
+    assert result.failure_reason is None
+
+
+def test_normalized_expected_null_and_present_value_fails_unexpected_value() -> None:
+    result = evaluate_field(
+        None,
+        "Acme Ltd.",
+        _nspec(),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is False
+    assert result.failure_reason is FailureReason.UNEXPECTED_VALUE
+
+
+def test_normalized_required_whitespace_only_fails_empty_before_normalizing() -> None:
+    result = evaluate_field(
+        "Acme Ltd.",
+        "   ",
+        _nspec(),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is False
+    assert result.failure_reason is FailureReason.EMPTY
+
+
+def test_normalized_optional_empty_expected_and_whitespace_actual_passes() -> None:
+    result = evaluate_field(
+        "",
+        "   ",
+        _nspec(required=False),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is True
+    assert result.failure_reason is None
+    assert result.normalized_expected == ""
+    assert result.normalized_actual == ""
+
+
+def test_normalized_records_normalized_values_on_pass() -> None:
+    result = evaluate_field(
+        "  Caf\u00e9  ",
+        "Cafe\u0301",
+        _nspec(case_sensitive=False),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is True
+    assert result.normalized_expected == "caf\u00e9"
+    assert result.normalized_actual == "caf\u00e9"
+
+
+def test_normalized_records_normalized_values_on_fail() -> None:
+    result = evaluate_field(
+        "Acme Ltd.",
+        "ACME SUPPLIES",
+        _nspec(case_sensitive=False),
+        actual_state=ValueState.PRESENT,
+    )
+
+    assert result.passed is False
+    assert result.failure_reason is FailureReason.VALUE_MISMATCH
+    assert result.normalized_expected == "acme ltd."
+    assert result.normalized_actual == "acme supplies"
+
+
+def test_normalized_carries_spec_severity_and_evaluator_type() -> None:
+    spec = _nspec(severity=Severity.HIGH)
+
+    passing = evaluate_field("Acme", "Acme", spec, actual_state=ValueState.PRESENT)
+    failing = evaluate_field("Acme", "acme", spec, actual_state=ValueState.PRESENT)
+
+    for result in (passing, failing):
+        assert result.severity is Severity.HIGH
+        assert result.evaluator_type is EvaluatorType.NORMALIZED_STRING
+        assert result.field_path == "vendor_name"
+
+
+def test_normalized_numeric_evaluator_still_raises_not_implemented() -> None:
+    spec = FieldSpec(
+        field_path="total_amount",
+        evaluator_type=EvaluatorType.NUMERIC,
+        severity=Severity.MEDIUM,
+    )
+
+    with pytest.raises(NotImplementedError, match="numeric"):
+        evaluate_field(
+            "10000.00",
+            "10000.00",
+            spec,
+            actual_state=ValueState.PRESENT,
+        )

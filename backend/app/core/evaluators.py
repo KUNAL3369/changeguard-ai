@@ -6,6 +6,7 @@ that is not implemented yet raises ``NotImplementedError`` instead of
 silently passing.
 """
 
+from app.core.normalizers import normalize_text
 from app.core.types import (
     EvaluatorType,
     FailureReason,
@@ -102,6 +103,8 @@ def evaluate_field(
             return _evaluate_exact(expected, actual, spec, actual_state)
         case EvaluatorType.REQUIRED:
             return _evaluate_required(expected, actual, spec, actual_state)
+        case EvaluatorType.NORMALIZED_STRING:
+            return _evaluate_normalized_string(expected, actual, spec, actual_state)
         case _:
             raise NotImplementedError(
                 f"evaluator not implemented: {spec.evaluator_type.value}"
@@ -116,6 +119,8 @@ def _build_result(
     *,
     passed: bool,
     failure_reason: FailureReason | None = None,
+    normalized_expected: object | None = None,
+    normalized_actual: object | None = None,
 ) -> FieldResult:
     """Stamp field_path, evaluator_type and severity from the spec (D4: score stays None)."""
     return FieldResult(
@@ -127,6 +132,8 @@ def _build_result(
         actual_state=actual_state,
         failure_reason=failure_reason,
         severity=spec.severity,
+        normalized_expected=normalized_expected,
+        normalized_actual=normalized_actual,
     )
 
 
@@ -187,3 +194,39 @@ def _evaluate_required(
             failure_reason=FailureReason.EMPTY,
         )
     return _build_result(spec, expected, actual, actual_state, passed=True)
+
+
+def _evaluate_normalized_string(
+    expected: object | None,
+    actual: object | None,
+    spec: FieldSpec,
+    actual_state: ValueState,
+) -> FieldResult:
+    """Normalize both sides (NFC, whitespace collapse, optional casefold) then compare.
+
+    No ``str()`` coercion: a non-str on either side is a type error. The
+    normalized forms are recorded on pass and on value mismatch so the
+    report can show what was normalized (EVALUATION_ENGINE principle 3).
+    """
+    if not isinstance(expected, str) or not isinstance(actual, str):
+        return _build_result(
+            spec,
+            expected,
+            actual,
+            actual_state,
+            passed=False,
+            failure_reason=FailureReason.TYPE_MISMATCH,
+        )
+    normalized_expected = normalize_text(expected, case_sensitive=spec.case_sensitive)
+    normalized_actual = normalize_text(actual, case_sensitive=spec.case_sensitive)
+    passed = normalized_expected == normalized_actual
+    return _build_result(
+        spec,
+        expected,
+        actual,
+        actual_state,
+        passed=passed,
+        failure_reason=None if passed else FailureReason.VALUE_MISMATCH,
+        normalized_expected=normalized_expected,
+        normalized_actual=normalized_actual,
+    )

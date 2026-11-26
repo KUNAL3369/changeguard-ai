@@ -9,7 +9,7 @@ Statements marked (proposed) should be confirmed with the developer in the ticke
 6. Thresholds are configurable. 7. Version the evaluator (`EVALUATOR_VERSION` constant stored with runs).
 
 ## Field evaluation
-`evaluate_field(expected, actual, spec, *, actual_state) -> FieldResult{passed, evaluator_type, score|None, failure_reason|None, severity, expected, actual, actual_state}`
+`evaluate_field(expected, actual, spec, *, actual_state) -> FieldResult{passed, evaluator_type, score|None, failure_reason|None, severity, expected, actual, actual_state, normalized_expected|None, normalized_actual|None}`
 `evaluate_case(expected_json, normalized_output, field_specs) -> list[FieldResult]`
 
 Presence/state rules (T08, decisions D1–D4 in docs/DECISIONS.md): actual values carry a `ValueState` —
@@ -30,7 +30,17 @@ Ownership notes for later tickets:
 
 ### Evaluators
 - **exact**: strict equality after type check. No normalization.
-- **normalized_string**: Unicode NFKC, trim, collapse whitespace; optional casefold (`case_sensitive`). Punctuation preserved by default (proposed).
+- **normalized_string** (T09, confirmed in O8): runs after the presence/state rules above. Both expected and actual must be `str` —
+  any other type fails `type_mismatch` with **no `str()` coercion**. Both sides are normalized with `normalize_text`
+  (`backend/app/core/normalizers.py`) in this order: (1) Unicode **NFC** (canonical composition, so composed vs decomposed
+  input compare equal — NFKC is deliberately NOT used because compatibility folding can change meaning); (2) trim and collapse
+  every whitespace run (`" ".join(value.split())` — spaces, tabs, newlines, NBSP) to a single space; (3) if `case_sensitive: false`
+  (spec default `true`), apply `casefold()` last, so `Straße` and `STRASSE` compare equal. Equal normalized values → pass,
+  otherwise fail `value_mismatch`. The normalized forms are recorded on the result as `normalized_expected`/`normalized_actual`
+  for both pass and value mismatch (normalization is transparent, principle 3). Score is `None`.
+  **Known limits:** punctuation and dash variants are significant (`Acme Ltd.` ≠ `Acme Ltd`, en dash ≠ hyphen) and
+  zero-width characters (e.g. U+200B) are NOT treated as whitespace and are NOT removed — both are expected differences until
+  a future ticket decides otherwise.
 - **numeric**: parse to `Decimal`. Accept thousands separators with "." as decimal point by default; strip currency symbols only if configured;
   unparseable → fail with reason. Pass if `abs(a-e) <= tolerance` (tolerance is a Decimal string in spec). Never use float. (proposed)
 - **date**: normalize to ISO `YYYY-MM-DD`. Default accepted: ISO, `D Mon YYYY`, `Month D, YYYY`. Slash formats (`03/04/2026`) require explicit

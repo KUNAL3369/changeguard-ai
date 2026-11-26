@@ -39,6 +39,10 @@
 | 034 | D3: the `required` evaluator checks presence and non-empty only, never the value | Matches the EVALUATION_ENGINE definition; value correctness belongs to `exact` |
 | 035 | D4: `score = None` for exact/required | No invented partial-credit semantics; numeric (T10) defines score |
 | 036 | D5: `EVALUATOR_VERSION` stays `"0.1.0"`; bump at the first persisted run and on any later evaluator behavior change | No runs exist yet; the version exists so stored run results stay attributable |
+| 037 | `normalized_string` normalizes with **NFC**, not NFKC (T09, O8) | NFKC compatibility folding can change meaning (full-width, ligatures); the dataset must control what counts as equivalent. NFC alone fixes composed-vs-decomposed input |
+| 038 | Whitespace step = `" ".join(value.split())` (trims and collapses all Unicode whitespace incl. tabs, newlines, NBSP); punctuation, dash variants and zero-width characters are NOT normalized | Collapsing whitespace fixes LLM formatting noise; keeping punctuation/dashes/zero-width strict keeps normalization honest and explainable (documented known limits) |
+| 039 | `casefold()` runs last, only when `FieldSpec.case_sensitive` is `false` (default `true`); non-`str` on either side fails `type_mismatch` with no `str()` coercion | Casefold after NFC is deterministic (`Straße` == `STRASSE`); silent coercion would hide a real extraction type bug |
+| 040 | `FieldSpec.case_sensitive: bool = True` (default keeps existing constructions valid); `FieldResult.normalized_expected`/`normalized_actual` default `None` and are recorded on pass and on value mismatch | Principle 3: normalize transparently and show what was normalized; type mismatch records nothing because nothing was normalized |
 
 ## OPEN — ask the developer, do not decide silently
 | # | Question | Notes |
@@ -49,4 +53,4 @@
 | O5 | Stale-run recovery rule (re-queue vs fail) | Decide in worker ticket (T29) |
 | O6 | Max upload size (default 10 MB) | Assumption; confirm |
 | O7 | PDF text library (pdfplumber vs pypdf; PyMuPDF license) | Decide in T26 |
-| O8 | Exact normalization rules marked "(proposed)" in EVALUATION_ENGINE.md | Confirm in T08–T12 |
+| O8 | Exact normalization rules marked "(proposed)" in EVALUATION_ENGINE.md | **normalized_string confirmed in T09 (ADR-037..040, defaults approved by the owner: NFC, whitespace collapse, optional casefold, punctuation/zero-width strict)**; numeric and date rules still open — confirm in T10 and T12 |

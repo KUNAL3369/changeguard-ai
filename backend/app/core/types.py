@@ -65,6 +65,7 @@ class FieldSpec:
     evaluator_type: EvaluatorType
     severity: Severity
     required: bool = True
+    case_sensitive: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +81,8 @@ class FieldResult:
     severity: Severity = Severity.MEDIUM
     evidence: Evidence | None = None
     evaluator_version: str = EVALUATOR_VERSION
+    normalized_expected: object | None = None
+    normalized_actual: object | None = None
 
     def __post_init__(self) -> None:
         if not self.passed and self.failure_reason is None:

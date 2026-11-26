@@ -11,7 +11,7 @@
 ## M2 Evaluation core — pure Python (~8 days)
 - [x] T07 Core types (FieldSpec, FieldResult, Severity) + import-boundary test. Done: ruff clean; 28 tests passed (10 new) on 2026-11-26; committed as `6b994dc` (not pushed).
 - [x] T08 exact + required evaluators + tests. Done: `evaluate_field(expected, actual, spec, *, actual_state)` in `backend/app/core/evaluators.py`; `ValueState`, `UNEXPECTED_VALUE`, `VALUE_MISMATCH`, `actual_state` added to core types; 69 tests passed + ruff clean on 2026-11-26 (evidence in PROGRESS.md); committed, not pushed.
-- T09 normalized_string evaluator + tests.
+- [x] T09 normalized_string evaluator + tests. Done: `app/core/normalizers.py` (`normalize_text`: NFC → whitespace collapse → optional casefold) + type-strict `normalized_string` dispatch in `evaluate_field`; `FieldSpec.case_sensitive`, `FieldResult.normalized_expected/normalized_actual`; `107 passed` + `All checks passed!` (ruff) on 2026-11-26 (evidence in PROGRESS.md); committed, not pushed.
 - T10 numeric evaluator (Decimal, tolerance) + boundary tests.
 - T11 date evaluator + ambiguity tests.
 - T12 json_schema + custom_rule evaluators + tests.
