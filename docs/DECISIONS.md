@@ -29,6 +29,10 @@
 | 024 | Dev dependency group via PEP 735 | [dependency-groups] dev in pyproject.toml ensures plain `uv sync` keeps dev tools installed |
 | 025 | API error envelope format | `{"error":{"code":"string","message":"string","details":{}}}` per bundle API specification |
 | 026 | Port 8001 for FastAPI server | Port 8000 conflicts on Windows development environments; README and CLAUDE.md aligned |
+| 027 | `Severity`, `EvaluatorType`, `FailureReason` use Python 3.12 `StrEnum` | Ruff rule `UP042` rejects `str, Enum`; string-valued enums are simpler |
+| 028 | `EVALUATOR_VERSION = "0.1.0"` in `app/core/types.py` | EVALUATION_ENGINE.md requires a version constant stored with runs |
+| 029 | `FieldResult` rejects `passed=False` without `failure_reason` | Every failure must be explainable; `__post_init__` enforces it |
+| 030 | Core boundary-test forbidden list: app layers `app.api`, `app.adapters`, `app.config`, `app.db`, `app.main`, `app.services`, `app.worker`; dependencies `fastapi`, `httpx`, `logging`, `pydantic`, `requests`, `sqlalchemy`, `boto3`, `supabase`; stdlib I/O `os`, `pathlib`, `socket`, `subprocess`, `sys`; clock calls `datetime.now(`, `datetime.today(`, `datetime.utcnow(`, `time.time(` | Makes the pure-Python `app/core` boundary explicit and enforceable |
 
 ## OPEN — ask the developer, do not decide silently
 | # | Question | Notes |
